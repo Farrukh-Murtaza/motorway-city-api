@@ -43,6 +43,9 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: 21
+          script: |
+            cd /home/moterwa1/moterwaycity.com
+            php artisan migrate --force
           log-level: verbose
           exclude: |
             **/.git*
