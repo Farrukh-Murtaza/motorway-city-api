@@ -42,6 +42,7 @@ jobs:
           server: ${{ secrets.SERVER }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+          port: 21
           local-dir: ./
           server-dir: ./api/
           log-level: verbose
