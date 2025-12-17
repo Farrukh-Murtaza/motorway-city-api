@@ -42,7 +42,9 @@ jobs:
           server: ${{ secrets.SERVER }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+          local-dir: ./
           server-dir: ./api/
+          log-level: verbose
           exclude: |
             **/.git*
             **/.github*
