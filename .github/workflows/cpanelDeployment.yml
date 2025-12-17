@@ -13,7 +13,10 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
+      
+      - name: Copy .env
+        run : php -r "file_exists('.env') || copy('.env.example', '.env');"
+        
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -29,6 +32,9 @@ jobs:
         run: |
           php artisan key:generate --force || true
           php artisan optimize:clear
+
+      - name: Directory Permissions
+        run: chmod -R 775 storage
 
       - name: FTP Deploy to cPanel
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
