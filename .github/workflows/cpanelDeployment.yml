@@ -37,7 +37,7 @@ jobs:
         run: chmod -R 775 storage
 
       - name: FTP Deploy to cPanel
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        uses: appleboy/ssh-action@master
         with:
           server: ${{ secrets.SERVER }}
           username: ${{ secrets.USERNAME }}
