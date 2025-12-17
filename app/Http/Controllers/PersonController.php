@@ -84,6 +84,7 @@ class PersonController extends Controller
     public function update(Request $request, Person $person)
     {
 
+     
         try {
             $validated = $this->validateData($request, $person->id);
 
