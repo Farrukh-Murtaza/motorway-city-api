@@ -42,7 +42,6 @@ jobs:
           server: ${{ secrets.SERVER }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
-          local-dir: ./
           server-dir: public_html/api/
           exclude: |
             **/.git*
