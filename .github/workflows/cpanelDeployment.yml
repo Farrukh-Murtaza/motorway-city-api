@@ -37,15 +37,12 @@ jobs:
         run: chmod -R 775 storage
 
       - name: FTP Deploy to cPanel
-        uses: appleboy/ssh-action@master
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.SERVER }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: 21
-          script: |
-            cd /home/moterwa1/moterwaycity.com
-            php artisan migrate --force
           log-level: verbose
           exclude: |
             **/.git*
