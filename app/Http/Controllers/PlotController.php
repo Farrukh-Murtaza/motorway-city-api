@@ -54,35 +54,6 @@ class PlotController extends Controller
         }
     }
 
-    /**
-     * Get available plots only
-     */
-    public function availablePlots(Request $request): JsonResponse
-    {
-        try {
-            $query = Plot::available()->with('currentOwner');
-
-            // Additional filters for available plots
-            if ($request->has('block')) {
-                $query->where('block', $request->block);
-            }
-            
-            if ($request->has('category')) {
-                $query->where('category', $request->category);
-            }
-
-            if ($request->has('sector')) {
-                $query->where('sector', $request->sector);
-            }
-
-            $plots = $query->get();
-
-            return $this->success(PlotResource::collection($plots), 'Available plots retrieved successfully');
-            
-        } catch (\Exception $e) {
-            return $this->error('Failed to retrieve available plots: ' . $e->getMessage(), 500);
-        }
-    }
 
     /**
      * Store a newly created resource in storage.
@@ -208,24 +179,5 @@ class PlotController extends Controller
         }
     }
 
-    /**
-     * Get plot statistics
-     */
-    public function statistics(): JsonResponse
-    {
-        try {
-            $stats = [
-                'total' => Plot::count(),
-                'available' => Plot::available()->count(),
-                'booked' => Plot::booked()->count(),
-                'sold' => Plot::sold()->count(),
-                'cancelled' => Plot::where('status', 'cancelled')->count(),
-            ];
-
-            return $this->success($stats, 'Plot statistics retrieved successfully');
-            
-        } catch (\Exception $e) {
-            return $this->error('Failed to retrieve plot statistics: ' . $e->getMessage(), 500);
-        }
-    }
+   
 }

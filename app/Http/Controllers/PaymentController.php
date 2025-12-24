@@ -341,42 +341,6 @@ class PaymentController extends Controller
         return $this->processAdvancePayment($plotSale, $data, $attachmentPath);
     }
 
-    /**
-     * Get pending installments for a plot sale
-     */
-    public function getPendingInstallments($plotSaleId)
-    {
-        try {
-            $installments = Installment::where('plot_sale_id', $plotSaleId)
-                ->with(['plot'])
-                ->whereIn('status', ['pending', 'partial', 'overdue'])
-                ->orderBy('due_date')
-                ->orderBy('installment_number')
-                ->get()
-                ->map(function ($installment) {
-                    return [
-                        'id' => $installment->id,
-                        'installment_number' => $installment->installment_number,
-                        'due_date' => $installment->due_date->format('Y-m-d'),
-                        'original_amount' => $installment->original_amount,
-                        'paid_amount' => $installment->paid_amount,
-                        'remaining_amount' => $installment->remaining_amount,
-                        'status' => $installment->status,
-                        'is_overdue' => $installment->status === 'overdue',
-                        'plot' => [
-                            'id' => $installment->plot->id,
-                            'name' => $installment->plot->name,
-                        ]
-                    ];
-                });
-
-            return $this->success($installments);
-
-        } catch (\Exception $e) {
-            Log::error('Error fetching pending installments: ' . $e->getMessage());
-            return $this->error('Failed to fetch installments', 500);
-        }
-    }
 
     /**
      * Get payment history for a plot sale
@@ -392,7 +356,7 @@ class PaymentController extends Controller
                     return [
                         'id' => $payment->id,
                         'payment_reference' => $payment->payment_reference,
-                        'amount' => $payment->amount,
+                        'amount' => (double )$payment->amount,
                         'payment_date' => $payment->payment_date->format('Y-m-d H:i:s'),
                         'payment_method' => $payment->payment_method,
                         'payment_type' => $payment->payment_type,
@@ -400,15 +364,11 @@ class PaymentController extends Controller
                         'notes' => $payment->notes,
                         'attachment' => $payment->attachment,
                         'attachment_url' => $payment->attachment ? asset('storage/' . $payment->attachment) : null,
-                        'created_by' => $payment->creator ? $payment->creator->name : null,
-                        'plot' => [
-                            'id' => $payment->plot->id,
-                            'name' => $payment->plot->name,
-                        ],
+                        'created_by' => $payment->creator ? $payment->creator->name : null, 
                         'applied_to_installments' => $payment->distributions->map(function ($dist) {
                             return [
                                 'installment_number' => $dist->installment->installment_number,
-                                'amount_applied' => $dist->amount_applied,
+                                'amount_applied' => (double)$dist->amount_applied,
                                 'installment_status' => $dist->installment->status
                             ];
                         })
@@ -569,5 +529,120 @@ class PaymentController extends Controller
         }
         
         return "{$type} payment of PKR {$amount} for Plot Sale #{$regNo}";
+    }
+
+    /**
+    * Get all payments grouped by date
+    */
+    public function getAllPaymentsGroupedByDate(Request $request)
+    {
+        try {
+            $query = Payment::with(['distributions.installment', 'plot', 'plotSale.customer', 'creator'])
+                ->orderBy('payment_date', 'desc');
+
+            // Optional filters
+            if ($request->has('start_date')) {
+                $query->whereDate('payment_date', '>=', $request->start_date);
+            }
+
+            if ($request->has('end_date')) {
+                $query->whereDate('payment_date', '<=', $request->end_date);
+            }
+
+            if ($request->has('payment_method')) {
+                $query->where('payment_method', $request->payment_method);
+            }
+
+            if ($request->has('payment_type')) {
+                $query->where('payment_type', $request->payment_type);
+            }
+
+            $payments = $query->get();
+
+            // Group payments by date
+            $groupedPayments = $payments->groupBy(function ($payment) {
+                return $payment->payment_date->format('Y-m-d');
+            })->map(function ($dayPayments, $date) {
+                $dateObj = \Carbon\Carbon::parse($date);
+                $today = \Carbon\Carbon::today();
+                $yesterday = \Carbon\Carbon::yesterday();
+
+                // Determine label
+                if ($dateObj->isToday()) {
+                    $label = 'Today';
+                } elseif ($dateObj->isYesterday()) {
+                    $label = 'Yesterday';
+                } else {
+                    $label = $dateObj->format('l, F j, Y'); // e.g., "Monday, December 24, 2024"
+                }
+
+                return [
+                    'date' => $date,
+                    'label' => $label,
+                    'total_amount' => $dayPayments->sum('amount'),
+                    'payment_count' => $dayPayments->count(),
+                    'payments' => $dayPayments->map(function ($payment) {
+                        return [
+                            'id' => $payment->id,
+                            'payment_reference' => $payment->payment_reference,
+                            'amount' => (double) $payment->amount,
+                            'payment_date' => $payment->payment_date->format('Y-m-d H:i:s'),
+                            'payment_time' => $payment->payment_date->format('h:i A'),
+                            'payment_method' => $payment->payment_method,
+                            'payment_type' => $payment->payment_type,
+                            'transaction_id' => $payment->transaction_id,
+                            'notes' => $payment->notes,
+                            'plot' => [
+                                'id' => $payment->plot->id,
+                                'name' => $payment->plot->name,
+                            ],
+                            'customer' => [
+                                'id' => $payment->plotSale->customer->id,
+                                'name' => $payment->plotSale->customer->name,
+                            ],
+                            'plot_sale' => [
+                                'id' => $payment->plotSale->id,
+                                'registration_no' => $payment->plotSale->registration_no,
+                            ],
+                            'created_by' => $payment->creator ? $payment->creator->name : null,
+                            'applied_to_installments' => $payment->distributions->map(function ($dist) {
+                                return [
+                                    'installment_number' => $dist->installment->installment_number,
+                                    'amount_applied' => (double) $dist->amount_applied,
+                                    'installment_status' => $dist->installment->status
+                                ];
+                            })
+                        ];
+                    })->values()
+                ];
+            })->values();
+
+            // Calculate summary statistics
+            $summary = [
+                'total_payments' => $payments->count(),
+                'total_amount' => $payments->sum('amount'),
+                'payment_methods' => [
+                    'cash' => $payments->where('payment_method', 'cash')->sum('amount'),
+                    'bank_transfer' => $payments->where('payment_method', 'bank_transfer')->sum('amount'),
+                    'cheque' => $payments->where('payment_method', 'cheque')->sum('amount'),
+                    'online' => $payments->where('payment_method', 'online')->sum('amount'),
+                ],
+                'payment_types' => [
+                    'installment' => $payments->where('payment_type', 'installment')->count(),
+                    'partial' => $payments->where('payment_type', 'partial')->count(),
+                    'advance' => $payments->where('payment_type', 'advance')->count(),
+                    'custom' => $payments->where('payment_type', 'custom')->count(),
+                ]
+            ];
+
+            return $this->success([
+                'summary' => $summary,
+                'grouped_payments' => $groupedPayments
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching grouped payments: ' . $e->getMessage());
+            return $this->error('Failed to fetch payments', 500);
+        }
     }
 }

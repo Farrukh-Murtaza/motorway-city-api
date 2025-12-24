@@ -57,36 +57,13 @@ class PlotSaleController extends Controller
                 });
             }
 
-            $plotSales = $query->orderBy('booking_date', 'desc')->get();
+            $plot_sale = $query->orderBy('booking_date', 'desc')->get();
 
-            return $this->success(PlotSaleResource::collection($plotSales), 'Plot sales retrieved successfully');
+            return $this->success(PlotSaleResource::collection($plot_sale), 'Plot sales retrieved successfully');
         } catch (\Exception $e) {
             Log::error('Error fetching plot sales: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             return $this->error('Failed to fetch plot sales', 500);
-        }
-    }
-
-    /**
-     * Load necessary data for creating a plot sale
-     */
-    public function loadData()
-    {
-        try {
-            $persons = Person::select('id', 'first_name', 'last_name', 'cnic')->get();
-            $plots = Plot::select('id', 'plot_number', 'marla', 'block_id', 'status')
-                ->where('status', 'available')
-                ->get();
-            
-            $data = [
-                'plots' => $plots,
-                'persons' => $persons,
-            ];
-            
-            return $this->success($data, 'Data loaded successfully');
-        } catch (\Exception $e) {
-            Log::error('Error loading data: ' . $e->getMessage());
-            return $this->error('Failed to load data', 500);
         }
     }
 
@@ -197,35 +174,23 @@ class PlotSaleController extends Controller
      */
     public function show($id)
     {
+
+        // return PlotSale::find($id);
         try {
-            $plotSale = PlotSale::with([
-                'customer',
-                'nominee',
-                'nomineeRelation',
+            $plot_sale = PlotSale::with([
                 'plot',
-                'invoice.installments' => function($query) {
-                    $query->orderBy('installment_number');
-                },
-                'invoice.payments' => function($query) {
-                    $query->orderBy('payment_date', 'desc');
-                }
+                'customer',
+                // 'invoice.installments' => function($query) {
+                //     $query->orderBy('installment_number');
+                // },
+                // 'invoice.payments' => function($query) {
+                //     $query->orderBy('payment_date', 'desc');
+                // }
             ])->findOrFail($id);
 
-            $data = [
-                'plot_sale' => $plotSale,
-                'summary' => [
-                    'total_amount' => $plotSale->total_amount,
-                    'amount_paid' => $plotSale->amount_paid,
-                    'remaining_amount' => $plotSale->total_amount - $plotSale->amount_paid,
-                    'paid_installments' => $plotSale->invoice ? $plotSale->invoice->installments->where('status', 'paid')->count() : 0,
-                    'total_installments' => $plotSale->total_installments,
-                    'remaining_installments' => $plotSale->total_installments - ($plotSale->invoice ? $plotSale->invoice->installments->where('status', 'paid')->count() : 0),
-                    'next_installment_date' => $plotSale->next_installment_date,
-                    'completion_percentage' => $plotSale->total_amount > 0 ? ($plotSale->amount_paid / $plotSale->total_amount) * 100 : 0,
-                ],
-            ];
+             $plot_sale = new PlotSaleResource($plot_sale);
 
-            return $this->success($data, 'Plot sale retrieved successfully');
+            return $this->success($plot_sale, 'Plot sale retrieved successfully');
         } catch (\Exception $e) {
             Log::error('Error fetching plot sale: ' . $e->getMessage());
             return $this->error('Plot sale not found', 404);

@@ -144,8 +144,10 @@ class InstallmentController extends Controller
                 'paid_installments' => $installments->where('status', 'paid')->count(),
                 'pending_installments' => $installments->where('status', 'pending')->count(),
                 'overdue_installments' => $installments->where('status', 'overdue')->count(),
-                'total_amount' => $installments->sum('amount'),
-                'paid_amount' => $installments->where('status', 'paid')->sum('amount'),
+                'total_amount' => $plotSale->total_amount,
+                'down_payment' => $plotSale->down_payment,
+                'amount_paid' => $plotSale->amount_paid,
+                'remaining_amount' => $plotSale->remaining_amount,
                 'pending_amount' => $installments->whereIn('status', ['pending', 'overdue'])->sum('amount'),
                 'total_late_fees' => $installments->sum('late_fee'),
                 'next_installment' => $installments->where('status', 'pending')->sortBy('installment_number')->first(),
@@ -167,7 +169,7 @@ class InstallmentController extends Controller
         try {
             $installments = Installment::with(['plotSale.customer', 'plotSale.plot'])
                 ->where('status', 'pending')
-                ->whereBetween('due_date', [now(), now()->addDays(30)])
+                ->whereBetween('due_date', [now(), now()->addDays(60)])
                 ->orderBy('due_date')
                 ->get();
 
